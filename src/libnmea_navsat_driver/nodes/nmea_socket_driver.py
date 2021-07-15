@@ -66,6 +66,10 @@ def main(args=None):
 
     frame_id = driver.get_frame_id()
 
+    driver.get_logger().info(
+        " Using parameters ip {} port {} buffer_size {} timeout_sec {}"
+        .format(local_ip, local_port, buffer_size, timeout))
+
     # Connection-loop: connect and keep receiving. If receiving fails, reconnect
     while rclpy.ok():
         try:

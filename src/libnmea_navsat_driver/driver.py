@@ -125,9 +125,9 @@ class Ros2NMEADriver(Node):
                                    "Sentence was: %s" % nmea_string)
             return False
 
-        parsed_sentence = parser.parse_nmea_sentence(nmea_string)
+        parsed_sentence = parser.parse_nmea_sentence(nmea_string, self.get_logger())
         if not parsed_sentence:
-            self.get_logger().debug("Failed to parse NMEA sentence. Sentence was: %s" % nmea_string)
+            self.get_logger().warn("Failed to parse NMEA sentence. Sentence was: %s" % nmea_string)
             return False
 
         if timestamp:
@@ -189,6 +189,7 @@ class Ros2NMEADriver(Node):
             current_fix.position_covariance[0] = (hdop * self.lon_std_dev) ** 2
             current_fix.position_covariance[4] = (hdop * self.lat_std_dev) ** 2
             current_fix.position_covariance[8] = (2 * hdop * self.alt_std_dev) ** 2  # FIXME
+            self.get_logger().debug('Publishing fix with GGA and without using RMC')
 
             self.fix_pub.publish(current_fix)
 
@@ -207,6 +208,7 @@ class Ros2NMEADriver(Node):
                 current_vel.header.frame_id = frame_id
                 current_vel.twist.linear.x = data['speed'] * math.sin(data['true_course'])
                 current_vel.twist.linear.y = data['speed'] * math.cos(data['true_course'])
+                print('Publishing fix with VTG and without using RMC')
                 self.vel_pub.publish(current_vel)
 
         elif 'RMC' in parsed_sentence:
@@ -235,8 +237,9 @@ class Ros2NMEADriver(Node):
                 current_fix.position_covariance_type = \
                     NavSatFix.COVARIANCE_TYPE_UNKNOWN
 
+                print('Publishing fix using RMC')
                 self.fix_pub.publish(current_fix)
-
+                
                 if not math.isnan(data['utc_time']):
                     current_time_ref.time_ref = rclpy.time.Time(seconds=data['utc_time']).to_msg()
                     self.time_ref_pub.publish(current_time_ref)

@@ -33,8 +33,7 @@
 
 # Check the NMEA sentence checksum. Return True if passes and False if failed
 def check_nmea_checksum(nmea_sentence):
-    print(nmea_sentence)
-
+    #print(nmea_sentence)
     split_sentence = nmea_sentence.split('*')
     if len(split_sentence) != 2:
         # No checksum bytes were found... improperly formatted/incomplete NMEA data?
@@ -46,5 +45,8 @@ def check_nmea_checksum(nmea_sentence):
     checksum = 0
     for c in data_to_checksum:
         checksum ^= ord(c)
+    result = ("%02X" % checksum) == transmitted_checksum.upper()
 
-    return ("%02X" % checksum) == transmitted_checksum.upper()
+    # print(f'Check of nmea sentence returned {result}')
+
+    return result

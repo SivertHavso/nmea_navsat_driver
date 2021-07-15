@@ -36,7 +36,6 @@ import calendar
 import math
 import logging
 
-logger = logging.getLogger('rosout')
 
 
 def safe_float(field):
@@ -143,10 +142,9 @@ parse_maps = {
 }
 
 
-def parse_nmea_sentence(nmea_sentence):
+def parse_nmea_sentence(nmea_sentence, logger):
     # Check for a valid nmea sentence
-
-    if not re.match(r'(^\$GP|^\$GN|^\$GL|^\$IN).*\*[0-9A-Fa-f]{2}$', nmea_sentence):
+    if not re.match(r'(^\$GP|^\$GN|^\$GL|^\$IN).*\*[0-9A-Fa-f]{2}', nmea_sentence):
         logger.debug("Regex didn't match, sentence not valid NMEA? Sentence was: %s"
                      % repr(nmea_sentence))
         return False
@@ -154,16 +152,16 @@ def parse_nmea_sentence(nmea_sentence):
 
     # Ignore the $ and talker ID portions (e.g. GP)
     sentence_type = fields[0][3:]
-
     if sentence_type not in parse_maps:
         logger.debug("Sentence type %s not in parse map, ignoring."
                      % repr(sentence_type))
         return False
 
     parse_map = parse_maps[sentence_type]
-
     parsed_sentence = {}
+    
     for entry in parse_map:
+        # logger.debug(entry)
         parsed_sentence[entry[0]] = entry[1](fields[entry[2]])
 
     return {sentence_type: parsed_sentence}

@@ -42,14 +42,27 @@ def main(args=None):
     rclpy.init(args=args)
     driver = Ros2NMEADriver()
 
-    try:
-        local_ip = driver.get_parameter('ip').value or '0.0.0.0'
-        local_port = driver.get_parameter('port').value or 10110
-        buffer_size = driver.get_parameter('buffer_size').value or 4096
-        timeout = driver.get_parameter('timeout_sec').value or 2
-    except KeyError as e:
-        driver.get_logger().err("Parameter %s not found" % e)
-        sys.exit(1)
+    driver.declare_parameters(
+        namespace='',
+        parameters=[
+            ('ip', "192.168.42.1"),
+            ('port', 9001),
+            ('buffer_size', 4096)
+        ]
+    )
+
+    #(ip, port, buffer_size) = driver.get_parameters(['ip', 'port', 'buffer_size'])
+    ip = driver.get_parameter('ip').value
+    port = int(driver.get_parameter('port').value)
+    buffer_size = driver.get_parameter('buffer_size').value
+#    try:
+#        local_ip = driver.get_parameter('ip').value or '0.0.0.0'
+#        local_port = driver.get_parameter('port').value or 10110
+#        buffer_size = driver.get_parameter('buffer_size').value or 4096
+#        timeout = driver.get_parameter('timeout_sec').value or 2
+#    except KeyError as e:
+#        driver.get_logger().err("Parameter %s not found" % e)
+#        sys.exit(1)
 
     frame_id = driver.get_frame_id()
 
@@ -57,39 +70,55 @@ def main(args=None):
     while rclpy.ok():
         try:
             # Create a socket
-            socket_ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            socket_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
             # Bind the socket to the port
-            socket_.bind((local_ip, local_port))
+            # socket_.bind((socket.gethostname(), local_port))
+            driver.get_logger().info(f"Connecting to {ip} on port {port}.")
+            socket_.connect((ip, port))
+            driver.get_logger().info(f"Connected.")
+
+            # socket_.listen(5)
 
             # Set timeout
-            socket_.settimeout(timeout)
+            #socket_.settimeout(timeout)
         except socket.error as exc:
-            rclpy.get_logger().error("Caught exception socket.error when setting up socket: %s" % exc)
+            driver.get_logger().error("Caught exception socket.error when setting up socket: %s" % exc)
             sys.exit(1)
 
         # recv-loop: When we're connected, keep receiving stuff until that fails
         while rclpy.ok():
             try:
-                data, remote_address = socket_.recvfrom(buffer_size)
+                # (clientsocket, address) = socket_.accept()
 
+                # #ct = client_thread(clientsocket)
+                # #ct.run()
+
+                # data, remote_address = ct.recvfrom(buffer_size)
+                # f = socket_.makefile('rb')
+                # data = f.read(buffer_size) 
+                data = socket_.recv(buffer_size)
                 # strip the data
-                data_list = data.strip().split("\n")
+                data_list = data.strip().decode('utf-8').split("\n")
 
+            
                 for data in data_list:
 
                     try:
-                        driver.add_sentence(data, frame_id)
+                        if driver.add_sentence(data, frame_id) == False:
+                            print('Could not publish sentence')
+
                     except ValueError as e:
-                        rclpy.get_logger().warn(
+                        driver.get_logger().warn(
                             "Value error, likely due to missing fields in the NMEA message. "
                             "Error was: %s. Please report this issue at github.com/ros-drivers/nmea_navsat_driver, "
                             "including a bag file with the NMEA sentences that caused it." % e)
 
             except socket.error as exc:
-                driver.get_logger().error("Caught exception socket.error during recvfrom: %s" % exc)
-                socket_.close()
+                driver.get_logger().error("Caught exception socket.error during recv: %s" % exc)
+                
                 # This will break out of the recv-loop so we start another iteration of the connection-loop
-                break
+                #break
+            
 
         socket_.close()  # Close socket
